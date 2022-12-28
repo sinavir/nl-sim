@@ -31,14 +31,12 @@ keyword: "AND" -> and
        | "RAM" -> ram
        | "COPY" -> copy
 
-arg: (var | number)+
+arg: (var | constant)+
 
 var: CNAME
 typedvar: CNAME [":" number]
-number: /0x[a-fA-F0-9]+/
-      | /0b[01]+/
-      | /[1-9][0-9]*/
-      | "0"
+number: /[1-9][0-9]*/
+constant: /[01]+/
 
 %import common.CNAME
 %import common.WS
@@ -46,6 +44,11 @@ number: /0x[a-fA-F0-9]+/
 %import common.HEXDIGIT
 %ignore WS
 """
+
+# number: /0x[a-fA-F0-9]+/
+#      | /0b[01]+/
+#      | /[1-9][0-9]*/
+#      | "0"
 
 
 class RawTreeToAST(Transformer):
@@ -65,6 +68,9 @@ class RawTreeToAST(Transformer):
         if len(args) == 0:  # If no children then "0" have been matched
             return 0
         return int(args[0], 0)  # On laisse python parser la valeur
+
+    def constant(self, args):
+        return int("0b" + args[0][::-1], 0)  # On laisse python parser la valeur
 
     def typedvar(self, args):
         l = 1 if args[1] is None else args[1]
