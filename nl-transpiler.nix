@@ -3,6 +3,6 @@ buildPythonPackage rec {
   pname = "netlistSimulator";
   version = "1.0";
   doCheck = false;
-  src = ./../nl-transpiler ;
+  src = ./nl-transpiler ;
   propagatedBuildInputs = [ pythonPackages.lark ];
 }

@@ -204,7 +204,7 @@ def _get_prompt_input(varset):
     for i in varset:
         content += f'\tprintf("{i.label}[{i.length}]:=");\n'
         content += f'\tscanf("%" SCNx{utils.size_from_bus_size(i.length)} "; ", &input->{i.label});\n'
-    content += "}}"
+    content += "}}\n"
     return content
 
 
@@ -243,7 +243,7 @@ def transpile2C(netlist_string, helper_functions=True):
     ordered_eqns = utils.getOrderedNetList(netlist)
 
     # Generating header file
-    h_file = "#ifndef {filename}_H\n#include <stdint.h>\n"
+    h_file = "#ifndef {filename}_H\n#define {filename}_H\n#include <stdint.h>\n"
     if helper_functions:
         h_file += "#include <stdlib.h>\n#include <stdio.h>\n#include <inttypes.h>\n"
     h_file += "\n#define {filename}_H\n"
