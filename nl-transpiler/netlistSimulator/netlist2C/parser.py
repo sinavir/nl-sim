@@ -26,9 +26,9 @@ nand: "NAND" arg arg
 mux: "MUX" arg arg arg
 reg: "REG" arg
 concat: "CONCAT" arg arg
-select: "SELECT" sarg sarg arg
+select: "SELECT" sarg arg
 snip: "SNIP" sarg sarg arg
-slice: "SLICE" sarg arg
+slice: "SLICE" sarg sarg arg
 rom: "ROM" sarg sarg arg
 ram: "RAM" sarg sarg arg arg arg
 copy: "COPY"? arg
