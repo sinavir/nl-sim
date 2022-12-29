@@ -134,7 +134,6 @@ def _getExpr(eq):
                 None,
             )
         case ast.Exprs.COPY:
-            print(f"{expr.args[0].label}")
             return (
                 full_exp_from_righthand_side(eq.var, f"{expr.args[0].label}"),
                 "",
@@ -203,7 +202,8 @@ def _get_prompt_input(varset):
     content = "void prompt_{short_name}_input(Input_{short_name} *input) {{\n"
     for i in varset:
         content += f'\tprintf("{i.label}[{i.length}]:=");\n'
-        content += f'\tscanf("%" SCNx{utils.size_from_bus_size(i.length)} "; ", &input->{i.label});\n'
+        content += f'\tscanf("%" SCNx{utils.size_from_bus_size(i.length)}, &input->{i.label});\n'
+        content += '\tprintf("%c", getchar());\n'
     content += "}}\n"
     return content
 

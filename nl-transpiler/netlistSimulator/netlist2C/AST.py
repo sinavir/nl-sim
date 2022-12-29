@@ -163,7 +163,6 @@ class Cst(Arg):
     """
 
     def __init__(self, length, value):
-        print(value)
         self.value = value
         self.label = hex(value)
         super().__init__(length)
