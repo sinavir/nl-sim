@@ -14,28 +14,36 @@ typedvarlist: typedvar ( "," typedvar)* ","?
 
 eqlist: eq+
 
-eq: var "=" [keyword] arg
+eq: var "=" op
 
-keyword: "AND" -> and
-       | "OR" -> or
-       | "XOR" -> xor
-       | "NOT" -> not
-       | "NAND" -> nand
-       | "MUX" -> mux
-       | "REG" -> reg
-       | "CONCAT" -> concat
-       | "SELECT" -> select
-       | "SNIP" -> snip
-       | "SLICE" -> slice
-       | "ROM" -> rom
-       | "RAM" -> ram
-       | "COPY" -> copy
+op: andand | oror | xor | notnot | nand | mux | reg | concat | select | snip | slice | rom | ram | copy
 
-arg: (var | constant)+
+andand: "AND" arg arg
+oror: "OR" arg arg
+xor: "XOR" arg arg
+notnot: "NOT" arg arg
+nand: "NAND" arg arg
+mux: "MUX" arg arg arg
+reg: "REG" arg
+concat: "CONCAT" arg arg
+select: "SELECT" sarg sarg arg
+snip: "SNIP" sarg sarg arg
+slice: "SLICE" sarg arg
+rom: "ROM" sarg sarg arg
+ram: "RAM" sarg sarg arg arg arg
+copy: "COPY"? arg
+
+arg: (var | constant)
+sarg: number
 
 var: CNAME
 typedvar: CNAME [":" number]
-number: /[1-9][0-9]*/
+
+number: /0x[a-fA-F0-9]+/
+      | /0b[01]+/
+      | /[1-9][0-9]*/
+      | "0"
+
 constant: /[01]+/
 
 %import common.CNAME
@@ -45,10 +53,7 @@ constant: /[01]+/
 %ignore WS
 """
 
-# number: /0x[a-fA-F0-9]+/
-#      | /0b[01]+/
-#      | /[1-9][0-9]*/
-#      | "0"
+#
 
 
 class RawTreeToAST(Transformer):
@@ -89,20 +94,53 @@ class RawTreeToAST(Transformer):
         return self.buses[args[0]]
 
     def eq(self, args):
-        k = ("copy" if args[1] is None else args[1].data).upper()
-        t = ast.Exprs[k]
-        signature = ast.get_signature(t)
-        sArgs = []
-        dArgs = []
-        for i in range(signature[1]):  # Static args
-            sArgs.append(args[2].children[i])
-        for i in range(signature[0]):
-            a = args[2].children[i + signature[1]]
-            if not isinstance(a, ast.Var):
-                a = ast.Cst(-1, a)
-            dArgs.append(a)
         print(f"Generating AST node for {args[0].label}")
-        return ast.Eq(args[0], ast.Expression(t, dArgs, sArgs))
+        return ast.Eq(args[0], args[1])
+
+    def op(self, args):
+        return args[0]
+
+    def andand(self, args):
+        return self._parse_sdargs("AND", args)
+
+    def oror(self, args):
+        return self._parse_sdargs("OR", args)
+
+    def xor(self, args):
+        return self._parse_sdargs("XOR", args)
+
+    def notnot(self, args):
+        return self._parse_sdargs("NOT", args)
+
+    def nand(self, args):
+        return self._parse_sdargs("NAND", args)
+
+    def mux(self, args):
+        return self._parse_sdargs("MUX", args)
+
+    def reg(self, args):
+        return self._parse_sdargs("REG", args)
+
+    def concat(self, args):
+        return self._parse_sdargs("CONCAT", args)
+
+    def select(self, args):
+        return self._parse_sdargs("SELECT", args)
+
+    def snip(self, args):
+        return self._parse_sdargs("SNIP", args)
+
+    def slice(self, args):
+        return self._parse_sdargs("SLICE", args)
+
+    def rom(self, args):
+        return self._parse_sdargs("ROM", args)
+
+    def ram(self, args):
+        return self._parse_sdargs("RAM", args)
+
+    def copy(self, args):
+        return self._parse_sdargs("COPY", args)
 
     def input(self, args):
         return args[0]
@@ -111,6 +149,12 @@ class RawTreeToAST(Transformer):
         return args[0]
 
     def vars(self, args):
+        return args[0]
+
+    def arg(self, args):
+        return args[0]
+
+    def sarg(self, args):
         return args[0]
 
     def varlist(self, args):
@@ -128,8 +172,23 @@ class RawTreeToAST(Transformer):
     def netlist(self, args):
         return ast.NetList(*args)
 
+    def _parse_sdargs(self, k, args):
+        t = ast.Exprs[k]
+        signature = ast.get_signature(t)
+        sArgs = []
+        dArgs = []
+        for i in range(signature[1]):  # Static args
+            sArgs.append(args[i])
+        for i in range(signature[0]):
+            a = args[i + signature[1]]
+            if not isinstance(a, ast.Var):
+                a = ast.Cst(-1, a)
+            dArgs.append(a)
+        return ast.Expression(t, dArgs, sArgs)
+
 
 def parse(s):
     l = Lark(GRAMMAR, start="netlist")
     parsed_tree = l.parse(s)
+    print(parsed_tree.pretty())
     return RawTreeToAST().transform(parsed_tree)

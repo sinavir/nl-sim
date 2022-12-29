@@ -62,6 +62,10 @@ def getOrderedNetList(netlist):
         if v in netlist.inputs:
             return
         path.add(v)
+        if v not in graph:
+            raise ValueError(
+                f"{v.label} have no value. Please add {v.label} to inputs or provide a '{v.label} = ...' statement'"
+            )
         for new in graph[v]:
             explore(new)
         path.remove(v)
