@@ -15,7 +15,7 @@ def main():
             "filename": args.outname,
             "functionName": "simulateNetlist",
         }
-        h_file, c_file = transpile2C(nl)
+        h_file, c_file = transpile2C(nl, less_verbose=True)
         with open(args.outname + ".h", "w") as h:
             h.write(h_file.format(**form))
         with open(args.outname + ".c", "w") as c:

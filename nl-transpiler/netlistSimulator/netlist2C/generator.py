@@ -74,7 +74,7 @@ def _getExpr(eq):
             return (
                 full_exp_from_righthand_side(
                     eq.var,
-                    f"{expr.args[0].label} & {mask} == 0 ? {expr.args[1].label} : {expr.args[2].label}",
+                    f"({expr.args[0].label} & {mask}) == 0 ? {expr.args[1].label} : {expr.args[2].label}",
                 ),
                 "",
                 "",
@@ -84,10 +84,11 @@ def _getExpr(eq):
             out_type = utils.cTypeFromBusSize(
                 expr.args[0].length + expr.args[1].length
             ).value
+            mask = f"(({utils.cTypeFromBusSize(expr.args[1].length).value}) 1 << {expr.args[1].length}) - 1"
             return (
                 full_exp_from_righthand_side(
                     eq.var,
-                    f"(({out_type}) {expr.args[0].label} << {expr.args[1].length}) + ({out_type}) {expr.args[1].label}",
+                    f"(({out_type}) ({expr.args[1].label} & {mask}) << {expr.args[0].length}) + ({out_type}) {expr.args[0].label}",
                 ),
                 "",
                 "",
@@ -192,41 +193,54 @@ def _get_rom_struct(roms):
 def _get_print_output(varset):
     prefix = "void print_{short_name}_output(Output_{short_name} *output) {{\n"
     content = ""
+    varset = list(varset)
+    varset.sort(key=lambda x: x.label)
+    fmt_strs = []
+    outputs = []
     for i in varset:
-        content += f'\tprintf("{i.label}=%" PRIx{utils.size_from_bus_size(i.length)} ", ", output->{i.label} & (1 << {i.length}) - 1);\n'
+        fmt_strs.append(f'"{i.label}=%" PRIx{utils.size_from_bus_size(i.length)} ')
+        outputs.append(f"output->{i.label} & (1 << {i.length}) - 1")
     suffix = '\tprintf("\\n");\n}}\n'
-    return prefix + content + suffix
+    sep = '", " '
+    return prefix + f'\tprintf({sep.join(fmt_strs)}, {", ".join(outputs)});\n' + suffix
 
 
-def _get_prompt_input(varset):
-    content = "void prompt_{short_name}_input(Input_{short_name} *input) {{\n"
+def _get_prompt_input(varset, less_verbose):
+    content = "bool prompt_{short_name}_input(Input_{short_name} *input) {{\n"
+    content += "\tint rslt;\n"
+    varset = list(varset)
+    varset.sort(key=lambda x: x.label)
     for i in varset:
-        content += f'\tprintf("{i.label}[{i.length}]:=");\n'
-        content += f'\tscanf("%" SCNx{utils.size_from_bus_size(i.length)}, &input->{i.label});\n'
-        content += '\tprintf("%c", getchar());\n'
+        if not less_verbose:
+            content += f'\tprintf("{i.label}[{i.length}]:=");\n'
+        content += (
+            f'\trslt = scanf("%" SCNx{utils.size_from_bus_size(i.length)}, &input->{i.label});\n'
+            "\tif (rslt != 1) return false;\n"
+        )
     content += "}}\n"
     return content
 
 
-def _get_prompt_rom(roms):
+def _get_prompt_rom(roms, less_verbose):
     prefix = "void fscan_rom(FILE * f, Rom_{short_name} * roms) {{\n"
     content = ""
     for e in roms:
+        content += f"\troms->{e.var.label} = calloc(1 << {e.expr.static_args[0]}, sizeof({utils.cTypeFromBusSize(e.expr.static_args[1]).value}));\n"
+        if not less_verbose:
+            content += f'\tprintf("Scanning ROM {e.var.label}\\n");\n'
         content += (
-            f"roms->{e.var.label} = calloc(1 << {e.expr.static_args[0]}, {utils.size_from_bus_size(e.expr.static_args[1])});"
-            f'\tprintf("Scanning ROM {e.var.label}\\n");\n'
             f"\tfor(unsigned int i = 0; i < (1 << {e.expr.static_args[0]}); i++) {{{{\n"
             f'\t\tif(1 != fscanf(f, "%" SCNx{utils.size_from_bus_size(e.expr.static_args[1])}, roms->{e.var.label} + i)) {{{{\n'
-            f'\t\t\tprintf("Error while scanning ROM {e.var.label} at line %d.Exiting", i);\n'
-            f"\t\t\texit(1);\n"
+            f'\t\t\tfprintf(stderr, "Scan for ROM {e.var.label} ended at line %d, before filling all the ROM, remaining will be filled with 0s.\\n", i);\n'
+            f"\t\t\tbreak;\n"
             f"\t\t}}}}\n"
             f"}}}}\n"
         )
-    suffix = '\tprintf("\\n");\n}}\n'
+    suffix = '\tfprintf(stderr, "\\n");\n}}\n' if len(roms) > 0 else "}}\n"
     return prefix + content + suffix
 
 
-def transpile2C(netlist_string, helper_functions=True):
+def transpile2C(netlist_string, helper_functions=True, less_verbose=False):
     """
     Renvoie un couple de strings correpondant au fichier headers et aux
     sources. Il comportent 3 placeholders compatibles avec la fonctions
@@ -245,7 +259,7 @@ def transpile2C(netlist_string, helper_functions=True):
     # Generating header file
     h_file = "#ifndef {filename}_H\n#include <stdint.h>\n"
     if helper_functions:
-        h_file += "#include <stdlib.h>\n#include <stdio.h>\n#include <inttypes.h>\n"
+        h_file += "#include <stdlib.h>\n#include <stdio.h>\n#include <stdbool.h>\n#include <inttypes.h>\n"
     h_file += "\n#define {filename}_H\n"
     # Input struct
     h_file += _get_struct(netlist.inputs, "Input_{short_name}")
@@ -256,7 +270,7 @@ def transpile2C(netlist_string, helper_functions=True):
     # String containing the C code file
     c_file = '#include <stdint.h>\n#include "{filename}.h"\n\n'
     if helper_functions:
-        c_file += "#include <stdlib.h>\n#include <stdio.h>\n#include <inttypes.h>\n\n"
+        c_file += "#include <stdlib.h>\n#include <stdio.h>\n#include <stdbool.h>\n#include <inttypes.h>\n\n"
     c_file += "void {functionName}(Input_{short_name} *input, Output_{short_name} *output, Rom_{short_name}* roms) {{\n"
 
     c_func_prefix = ""
@@ -285,15 +299,15 @@ def transpile2C(netlist_string, helper_functions=True):
 
     if helper_functions:
         c_file += _get_print_output(netlist.outputs)
-        c_file += _get_prompt_input(netlist.inputs)
-        c_file += _get_prompt_rom(roms)
+        c_file += _get_prompt_input(netlist.inputs, less_verbose)
+        c_file += _get_prompt_rom(roms, less_verbose)
 
     # On termine le fichier de headers
     h_file += _get_rom_struct(roms)
     h_file += "void {functionName}(Input_{short_name} *input, Output_{short_name} *output, Rom_{short_name}* roms);\n"
     if helper_functions:
         h_file += "void print_{short_name}_output(Output_{short_name} *output);\n"
-        h_file += "void prompt_{short_name}_input(Input_{short_name} *input);\n"
+        h_file += "bool prompt_{short_name}_input(Input_{short_name} *input);\n"
         h_file += "void fscan_rom(FILE * f, Rom_{short_name} * roms);\n"
     h_file += "\n#endif"
 

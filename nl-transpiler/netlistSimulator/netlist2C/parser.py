@@ -21,7 +21,7 @@ op: andand | oror | xor | notnot | nand | mux | reg | concat | select | snip | s
 andand: "AND" arg arg
 oror: "OR" arg arg
 xor: "XOR" arg arg
-notnot: "NOT" arg arg
+notnot: "NOT" arg
 nand: "NAND" arg arg
 mux: "MUX" arg arg arg
 reg: "REG" arg
@@ -30,7 +30,7 @@ select: "SELECT" sarg arg
 snip: "SNIP" sarg sarg arg
 slice: "SLICE" sarg sarg arg
 rom: "ROM" sarg sarg arg
-ram: "RAM" sarg sarg arg arg arg
+ram: "RAM" sarg sarg arg arg arg arg
 copy: "COPY"? arg
 
 arg: (var | constant)
