@@ -46,6 +46,7 @@ def getOrderedNetList(netlist):
     var_to_eq = {}
     graph = {}  # Dictionnaire du graph de dépendance des composants
     sorted_list = []  # composants triés
+    explored = set()
     regs = set()  # Nappes aboutissant à un registre, on doit les calculer aussi
     for e in netlist.equations:
         var_to_eq[e.var] = e
@@ -59,6 +60,7 @@ def getOrderedNetList(netlist):
             raise ValueError(
                 f"Cyclic netlist. Path is made of {[i.label for i in path]}"
             )
+        explored.add(v)
         if v in netlist.inputs:
             return
         path.add(v)
@@ -67,10 +69,12 @@ def getOrderedNetList(netlist):
                 f"{v.label} have no value. Please add {v.label} to inputs or provide a '{v.label} = ...' statement'"
             )
         for new in graph[v]:
-            explore(new)
+            if new not in explored:
+                explore(new)
         path.remove(v)
         if var_to_eq[v] not in sorted_list:
             sorted_list.append(var_to_eq[v])
+            print(f"{len(sorted_list)}/{len(graph)}")
 
     for v in netlist.outputs:
         path = set()  # Ensembles des points du chemin en court d'exploration
