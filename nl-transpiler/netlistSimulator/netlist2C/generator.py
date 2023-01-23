@@ -253,8 +253,11 @@ def transpile2C(netlist_string, helper_functions=True, less_verbose=False):
         l'extension .c (le fichier source contiendra un include vers
         `{filename}.h`
     """
+    print("Generating AST")
     netlist = getAST(netlist_string)
+    print("Topological sort")
     ordered_eqns = utils.getOrderedNetList(netlist)
+    print("Genrating C code")
 
     # Generating header file
     h_file = "#ifndef {filename}_H\n#include <stdint.h>\n"

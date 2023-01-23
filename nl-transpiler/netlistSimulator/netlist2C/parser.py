@@ -81,20 +81,16 @@ class RawTreeToAST(Transformer):
         l = 1 if args[1] is None else args[1]
         if args[0] not in self.buses:
             self.buses[args[0]] = ast.Var(l, args[0])
-            print(f"New variable declared | {args[0]}: {l}")
         elif self.buses[args[0]].length == -1:
             self.buses[args[0]].length = l
-            print(f"       Length set for | {args[0]}: {l}")
         return self.buses[args[0]]
 
     def var(self, args):
         if args[0] not in self.buses:
             self.buses[args[0]] = ast.Var(-1, args[0])
-            print(f"New variable declared | {args[0]}: -1")
         return self.buses[args[0]]
 
     def eq(self, args):
-        print(f"Generating AST node for {args[0].label}")
         return ast.Eq(args[0], args[1])
 
     def op(self, args):
