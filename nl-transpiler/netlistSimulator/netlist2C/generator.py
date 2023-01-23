@@ -151,7 +151,7 @@ def _getExpr(eq):
             ram_size = f"1 << {expr.static_args[0]}"
             return (
                 full_exp_from_righthand_side(eq.var, f"RAM_{label}[{read_address}]"),
-                f"\tstatic {utils.cTypeFromBusSize(expr.static_args[1]).value} RAM_{label}[{ram_size}];\n",
+                f"\tstatic {utils.cTypeFromBusSize(expr.static_args[1]).value} RAM_{label}[{ram_size}] = {{{{0}}}};\n",
                 f"\tif({expr.args[1].label} & {mask} != 0) RAM_{label}[{write_address}] = {expr.args[3].label};\n",
                 None,
             )
@@ -214,6 +214,7 @@ def _get_prompt_input(varset, less_verbose):
         if not less_verbose:
             content += f'\tprintf("{i.label}[{i.length}]:=");\n'
         content += (
+            f"\tinput->{i.label} = 0;\n"
             f'\trslt = scanf("%" SCNx{utils.size_from_bus_size(i.length)}, &input->{i.label});\n'
             "\tif (rslt != 1) return false;\n"
         )
